@@ -5,7 +5,7 @@ set print_parameter = true
 set primary_variables_list= c1, component_is_scalar , mu1, component_is_scalar, phi, component_is_scalar, zeta, component_is_scalar
 set FE_support_list= 1,1,1,1
 
-set dt = 1e-4
+set dt = 1e-2
 set totalTime = 500
 set current_increment = 0
 set off_output_index=0
@@ -37,11 +37,11 @@ set num_elem_y = 75
 end
 
 subsection Concentration
-set omega = 1.0
+set omega = 0.01
 set c_alpha = 0.1
 set c_beta = 0.9
 set kappa = 0.01
-set M = 0.0001
+set M = 0.01
 set phi_0 = -0.0
 set zeta_0 = 0.0
 # flux:
