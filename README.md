@@ -8,7 +8,7 @@ Main directories:
 - [lib](lib/): [mechanoChemFEM](https://github.com/mechanoChem/mechanoChemFEM) latest source code compatible with all studies/tests
 - [utilty](utilty/): useful scripts for pre/post-processing 
 
-# mechanoChemFEM
+## mechanoChemFEM
 mechanoChemFEM is a comprehensive open source library (licensed by LGPL) for modeling of mechano-chemical problems using the finite element method developed in [Computational Physics Group at University of Michigan](http://umich.edu/~compphys/index.html), and It consists of [classes](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/annotated.html) and [functions](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/modules.html) based on [Deal.ii](https://www.dealii.org/). 
 
 - **A detailed documentation of mechanoChemFEM is available** [here](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/index.html)>
@@ -26,8 +26,7 @@ mechanoChemFEM is a comprehensive open source library (licensed by LGPL) for mod
 	  5) `make run`
 
 ### Usage
-Following examples discuss in details how to implement PDEs, set input parameters, and obtain the results in mechanoChemFEM
-
+Following examples discuss in details how to implement PDEs, set input parameters, and obtain the results in mechanoChemFEM\
 [Example 1: Diffusion-reaction equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/diffusion_reaction.html)\
 [Example 2: Cahn-Hilliard equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/_cahn_hilliard.html)\
 [Example 3: Allen-Cahn equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/_allen__cahn.html)\
