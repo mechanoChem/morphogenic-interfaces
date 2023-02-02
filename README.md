@@ -1,4 +1,4 @@
-## (1) morphogenic-interfaces overview
+# (1) morphogenic-interfaces overview
 This repository provides **phase-field simulations** based on [mechanoChemFEM](https://github.com/mechanoChem/mechanoChemFEM)
 for design and study of intermetallic solid/solid charge transfer interface materials to improve the performance of Li-ion solid-state batteries
 
@@ -8,7 +8,7 @@ Main directories:
 - [case-studies](case-studies/): Codes and input parameters for all case studies 
 - [utilty](utilty/): useful scripts for pre/post-processing 
 
-## (2) mechanoChemFEM
+# (2) mechanoChemFEM
 mechanoChemFEM is a comprehensive open source library (licensed by LGPL) for modeling of mechano-chemical problems using the finite element method developed in [Computational Physics Group at University of Michigan](http://umich.edu/~compphys/index.html), and It consists of [classes](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/annotated.html) and [functions](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/modules.html) based on [Deal.ii](https://www.dealii.org/). 
 
 - **A detailed documentation of mechanoChemFEM is available** [here](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/index.html)>
@@ -32,7 +32,7 @@ Following examples discuss in details how to implement PDEs, set input parameter
 [Example 3: Allen-Cahn equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/_allen__cahn.html)\
 [Example 4: Coupled system with multiple domains](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/growth.html)\
 
-## (3) Automated testing and making template examples (beta version)
+# (3) Automated testing and making template examples (beta version)
 **One can unit test mechanoChemFEM and obtain some working examples in 2 easy steps**
 
 **Step 1**: Pulling unit test scripts and data from GitHub Repo
@@ -56,5 +56,5 @@ python unit_test.py my_test_folder test-1
 ### Dependencies for running tests
 [dealii](https://www.dealii.org/), [mechanoChemFEM](../lib), python 3.8+ and numpy, [meshio](https://github.com/nschloe/meshio) (pip install meshio, MIT license) 
 
-## (4) case studies for morphogenic interfaces
+# (4) case studies for morphogenic interfaces
 Please see [case-studies](case-studies), more information will be added. 
