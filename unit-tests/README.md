@@ -20,7 +20,7 @@ python unit_test.py my_test_folder test-1
 - 2nd input: test name, currently test-1 is available
 
 # Dependencies
-dealii, mechanochemFEM, python 3.8+, numpy, meshio (pip install meshio, MIT license) 
+[dealii](https://www.dealii.org/), [mechanoChemFEM](../lib), python 3.8+ and numpy, [meshio](https://github.com/nschloe/meshio) (pip install meshio, MIT license) 
 
 
 
