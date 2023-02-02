@@ -1,0 +1,33 @@
+[mfsh@login02 unit-tests]$ python unit_test.py demo-folder test-1
+
+Code directory: demo-folder
+
+Setting up demo-folder
+  - demo-folder made
+  - demo-folder/build made
+  - code scripts copied from the reference folder to demo-folder (done)
+
+Compiling the code in demo-folder/build
+  - Generating make files using cmake (done)
+  - Running make to compile the code (done)
+
+Running the code in demo-folder/build ...
+  - See outputs in demo-folder/build/0_outputs.txt (refresh to see updates)
+  - Use following in a seprate terminal to see last 20 lines of output:
+    watch tail -n 20 /expanse/lustre/projects/mia341/mfsh/morphogenic-interfaces/unit-tests/demo-folder/build/0_outputs.txt
+  - Progress 100.00%
+Verifying .vtk results generated in ref/test-1/vtk_results ...
+Checking vtk result demo-folder/build/vtk_outputs/output-0.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-1000.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-2000.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-3000.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-4000.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-5000.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-6000.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-7000.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-8000.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-9000.vtk, (passed)
+Checking vtk result demo-folder/build/vtk_outputs/output-10000.vtk, (passed)
+------
+Test passed
+------

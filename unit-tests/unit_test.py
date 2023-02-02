@@ -47,6 +47,25 @@ def run_shell_1(shell_command,output_file_path=None):
                 stderr=file,
                 shell=True)
 
+# def get_last_inc(fname, N=10):
+#     # ************current increment=419, current time= 0.041800************
+#     left = "current increment="
+#     right = ", current time="
+#     p = left + '(.*?)' + right
+
+#     with open(fname) as file:
+#         match = []
+#         for line in (file.readlines() [-N:]):
+#             for f in re.findall(p, line.strip()):
+#                 match.append(f.strip())
+
+#     return match
+
+def get_file_series(folder):
+    files = os.listdir(folder)
+    files.sort(key=lambda f: int(float(re.sub('\D', '', f))))
+    return files
+
 def print_process(process,msg,delay=0.5):
     i = '   '
     while process.poll() is None:
@@ -71,11 +90,14 @@ else:
 
     ref_folder = 'ref'
 
+    #------------------------------
     copy = True
     comp = True
     run = True
     show_run_prgress = True
     verify = True
+    ncore = 32
+    #------------------------------
 
     if len(sys.argv[0].rsplit("/",1)) == 2:
         ref_folder = sys.argv[0].rsplit("/",1)[0] + "/" + ref_folder
@@ -124,20 +146,27 @@ else:
         lines = 20
         print(f'  - Use following in a seprate terminal to see last {lines} lines of output:')
         print(f'    watch tail -n {lines} {os.getcwd()}/{test_output_path}')
-        p = run_shell_1(f'cd {build_dir}; mpirun -np 32 main -pc_type lu -pc_factor_mat_solver_type superlu_dist', test_output_path)
+        p = run_shell_1(f'cd {build_dir}; mpirun -np {ncore} main -pc_type lu -pc_factor_mat_solver_type superlu_dist', test_output_path)
         if show_run_prgress:
-            vtk_files = os.listdir(vtk_folder)
-            vtk_files.sort(key=lambda f: int(float(re.sub('\D', '', f))))
+            # vtk_files = os.listdir(vtk_folder)
+            # vtk_files.sort(key=lambda f: int(float(re.sub('\D', '', f))))
+            vtk_files = get_file_series(vtk_folder)
             n = int(float(re.sub('\D', '', vtk_files[-1])))
             if not os.path.exists(build_dir+"/vtk_outputs/"):
                 os.mkdir(build_dir+"/vtk_outputs/")
             k = 0
+            vtk_output_folder = build_dir+"/vtk_outputs/"
             while k < n:
                 print(f'  - Progress {k/n*100:.2f}%\r', end='')
                 # sys.stdout.write('\r')
                 # sys.stdout.write("%d%%" % (k/n*100))
                 # sys.stdout.flush()
-                k = len(os.listdir(build_dir+"/vtk_outputs/"))
+                # nf = len(os.listdir(vtk_output_folder))
+                try:
+                    vtk_files_ = get_file_series(vtk_output_folder)
+                    k = int(float(re.sub('\D', '', vtk_files_[-1])))
+                except:
+                    k = 0
             print(f'  - Progress {100.00:.2f}%\r', end='')
         else:
              print_process(p," - this may take several hours ")
@@ -148,8 +177,9 @@ else:
     passed = True
     if verify:
         print(f'\nVerifying .vtk results generated in {vtk_folder} ...')
-        vtk_files = os.listdir(vtk_folder)
-        vtk_files.sort(key=lambda f: int(float(re.sub('\D', '', f))))
+        # vtk_files = os.listdir(vtk_folder)
+        # vtk_files.sort(key=lambda f: int(float(re.sub('\D', '', f))))
+        vtk_files = get_file_series(vtk_folder)
         for vtk_file in vtk_files:
             
             ref_path = vtk_folder+"/"+vtk_file
