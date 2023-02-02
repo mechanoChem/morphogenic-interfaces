@@ -1,4 +1,4 @@
-## (1) morphogenic-interfaces overview
+## (1) Morphogenic interfaces overview
 This repository provides **phase-field simulations** based on [mechanoChemFEM](https://github.com/mechanoChem/mechanoChemFEM)
 for design and study of intermetallic solid/solid charge transfer interface materials to improve the performance of Li-ion solid-state batteries
 
@@ -8,7 +8,7 @@ Main directories:
 - [case-studies](case-studies/): Codes and input parameters for all case studies 
 - [utilty](utilty/): useful scripts for pre/post-processing 
 
-# (2) mechanoChemFEM
+## (2) mechanoChemFEM
 mechanoChemFEM is a comprehensive open source library (licensed by LGPL) for modeling of mechano-chemical problems using the finite element method developed in [Computational Physics Group at University of Michigan](http://umich.edu/~compphys/index.html), and It consists of [classes](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/annotated.html) and [functions](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/modules.html) based on [Deal.ii](https://www.dealii.org/). 
 
 - **A detailed documentation of mechanoChemFEM is available** [here](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/index.html)>
