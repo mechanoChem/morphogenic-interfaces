@@ -27,10 +27,8 @@ mechanoChemFEM is a comprehensive open source library (licensed by LGPL) for mod
 
 ### Usage
 Following examples discuss in details how to implement PDEs, set input parameters, and obtain the results in mechanoChemFEM
-[Example 1: Diffusion-reaction equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/diffusion_reaction.html)
 
-[Example 2: Cahn-Hilliard equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/_cahn_hilliard.html)
-
-[Example 3: Allen-Cahn equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/_allen__cahn.html)
-
-[Example 4: Coupled system with multiple domains](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/growth.html)
+[Example 1: Diffusion-reaction equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/diffusion_reaction.html)\
+[Example 2: Cahn-Hilliard equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/_cahn_hilliard.html)\
+[Example 3: Allen-Cahn equation](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/_allen__cahn.html)\
+[Example 4: Coupled system with multiple domains](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/growth.html)\
