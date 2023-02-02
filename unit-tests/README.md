@@ -1,4 +1,5 @@
-One can unit test mechanoChemFEM and obtain some working examples in 2 easy steps 
+One can unit test mechanoChemFEM and obtain some working examples in 2 easy steps
+
 **Step 1**: Pulling unit test scripts and data from GitHub Repo
  - Using svn (install in Mac: sudo port install subversion) to only download unit-tests subfolder from GitHub
 ```
@@ -8,6 +9,7 @@ svn checkout https://github.com/mechanoChem/morphogenic-interfaces/trunk/unit-te
 ```
 git clone https://github.com/mechanoChem/morphogenic-interfaces.git
 ```
+
 **Step 2**: runnig the `unit_test.py` command inside the downloaded unit-tests folder
 ```
 python unit_test.py my_test_folder test-1
