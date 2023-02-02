@@ -1,5 +1,5 @@
 # Automated testing and making template examples (beta version)
-One can unit test mechanoChemFEM and obtain some working examples in 2 easy steps
+**One can unit test mechanoChemFEM and obtain some working examples in 2 easy steps**
 
 **Step 1**: Pulling unit test scripts and data from GitHub Repo
  - Using svn (install in Mac: sudo port install subversion) to only download unit-tests subfolder from GitHub
