@@ -1,5 +1,4 @@
-# morphogenic-interfaces
-## (1) Overview
+## (1) morphogenic-interfaces overview
 This repository provides **phase-field simulations** based on [mechanoChemFEM](https://github.com/mechanoChem/mechanoChemFEM)
 for design and study of intermetallic solid/solid charge transfer interface materials to improve the performance of Li-ion solid-state batteries
 
@@ -54,7 +53,7 @@ python unit_test.py my_test_folder test-1
 - 1st  input: path/to/test/folder (here test_folder), where the unit test files and results are generated 
 - 2nd input: test name, currently test-1 is available
 
-### Dependencies for running the tests
+### Dependencies for running tests
 [dealii](https://www.dealii.org/), [mechanoChemFEM](../lib), python 3.8+ and numpy, [meshio](https://github.com/nschloe/meshio) (pip install meshio, MIT license) 
 
 ## (4) case studies for morphogenic interfaces
