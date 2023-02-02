@@ -39,25 +39,6 @@ mechanoChemFEM lib contains six modules:
 <B>ParameterHandler</B> is used for parameter management. 
 
 
-<B>Version information</B><br>
-=======================================================================
-This is version 0.4.
-
-
-<B>License</B><br>
-=======================================================================
-GNU Lesser General Public License (LGPL). Please see the file LICENSE for details.
-
-
-
-<B>Acknowledgements</B><br>
-=======================================================================
-This code has been developed under the support of the following: <br>
-
-- NSF DMREF grant: DMR1436154 "DMREF: Integrated Computational Framework for Designing Dynamically Controlled Alloy-Oxide Heterostructures" <br>
-- DOE BES, Division of Materials Sciences and Engineering: Award #DE-SC0008637 that funds the PRedictive Integrated Structural Materials Science (PRISMS) Center at University of Michigan <br>
-- Toyota Research Institute, Award #849910, "Computational framework for data-driven, predictive, multi-scale and multi-physics modeling of battery materials" <br>
-
 <B>Installation with cmake:</B><br>
 =======================================================================
 1. <B>Install pre-required libs</B><br>
@@ -86,4 +67,14 @@ This code has been developed under the support of the following: <br>
 Please see examples.
 
 
-data:03/15/2019
+<B>License</B><br>
+=======================================================================
+GNU Lesser General Public License (LGPL). Please see the file LICENSE for details.
+
+<B>Acknowledgements</B><br>
+=======================================================================
+This code has been developed under the support of the following: <br>
+
+- NSF DMREF grant: DMR1436154 "DMREF: Integrated Computational Framework for Designing Dynamically Controlled Alloy-Oxide Heterostructures" <br>
+- DOE BES, Division of Materials Sciences and Engineering: Award #DE-SC0008637 that funds the PRedictive Integrated Structural Materials Science (PRISMS) Center at University of Michigan <br>
+- Toyota Research Institute, Award #849910, "Computational framework for data-driven, predictive, multi-scale and multi-physics modeling of battery materials" <br>
