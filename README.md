@@ -6,7 +6,7 @@ Main directories:
 - [lib](lib/): [mechanoChemFEM](https://github.com/mechanoChem/mechanoChemFEM) latest source code compatible with all studies/tests
 - [unit-tests](unit-tests/): Automated framework to test mechanoChemFEM and provide template codes for further development by user
 - [case-studies](case-studies/): Codes and input parameters for all case studies 
-- [utilty](utilty/): useful scripts for pre/post-processing 
+- [utility](utility/): useful scripts for pre/post-processing 
 
 ## (2) mechanoChemFEM
 mechanoChemFEM is a comprehensive open source library (licensed by LGPL) for modeling of mechano-chemical problems using the finite element method developed in [Computational Physics Group at University of Michigan](http://umich.edu/~compphys/index.html), and It consists of [classes](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/annotated.html) and [functions](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mechanoChem/mechanoChemFEM/master/doxygen/html/modules.html) based on [Deal.ii](https://www.dealii.org/). 
