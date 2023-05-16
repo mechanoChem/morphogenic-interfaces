@@ -1,0 +1,80 @@
+#parameters file
+
+subsection Problem
+set print_parameter = true
+set primary_variables_list = c1, component_is_scalar , mu1, component_is_scalar, phi, component_is_scalar, zeta, component_is_scalar
+set FE_support_list = 1,1,1,1
+
+set off_output_index = 0
+
+#set mesh = .msh
+set save_snapshot = true
+#---------------------------------------------------
+set resuming_from_snapshot = false  		    	# false or true
+set dt = 1e-4 #0.01								# 0.000005 # initial time step, it is addaptive, difference in current times
+set totalTime = 500   # 12.5  s					# total time for simulation > output last time
+set current_time = 0					    # 0 or output last time
+set current_increment =	0					# 0 or output last increment -1
+# set refine_count = 771							# 0 or from the previous output file if resuming from a snapshot (file number + 1)
+set snapshot_directory = snapshot/
+set snapshot_file = snapshot/snapshot-0.dat	# 
+set output_directory = vtk_output_.0008_1/
+
+#---------------------------------------------------
+
+#FEM
+set volume_quadrature = 3 
+set face_quadrature = 2 
+end
+
+subsection Geometry
+set x_min = 0
+set y_min = 0
+set z_min = 0
+set x_max = 4
+set y_max = 4
+# set z_max = 2.0 #no need to 2D
+
+set num_elem_x = 150
+set num_elem_y = 150
+# set num_elem_z=5 #no need to 2Ds
+end
+
+subsection Concentration
+set omega = 1 			#20.1207e-30 # 0.01
+set kappa = .0008
+set M = 1 # 1.3902e+11 # 0.01
+# mu
+set mu_fun = 1				# 0: main, 1: test
+set tt = 1e-4
+set ep = 1e-13
+set order = 2
+set constant_M = false
+set increase_time = true
+# init
+set mean = 0.5
+set perturb = 0.05
+# flux:s
+set flux = 0.0
+set flux_width = 1.0
+end
+						
+#
+# parameters reserved for deal.ii first level code:
+#nonLinear_method : classicNewton
+#solver_method (direct) : PETScsuperLU, PETScMUMPS
+#solver_method (iterative) : PETScGMRES PETScBoomerAMG
+#relative_norm_tolerance, absolute_norm_tolerance, max_iterations
+#
+subsection Nonlinear_solver
+		set nonLinear_method = classicNewton
+		set relative_norm_tolerance = 1.0e-10
+		set absolute_norm_tolerance = 1.0e-10
+		set max_iterations = 10
+end
+						
+subsection Linear_solver
+		set solver_method = PETScsuperLU
+		set system_matrix_symmetricFlag = false # default is false
+end
+
