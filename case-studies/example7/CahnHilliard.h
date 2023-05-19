@@ -1,406 +1,262 @@
+/*
+zhenlin wang 2019
+*CahnHilliard
+*/
 #include "mechanoChemFEM.h"
-#include <math.h> /* exp */
-#include <cmath>  /* sqrt */
+#include "supplementary/computedField.h"
+//#include <deal.II/lac/affine_constraints.h>
+
 template <int dim>
-class CahnHilliard : public mechanoChemFEM<dim>
+class nodalField : public computedField<dim>
 {
 public:
-  CahnHilliard();
-  // this is a overloaded function
-  void get_residual(const typename hp::DoFHandler<dim>::active_cell_iterator &cell, const FEValues<dim> &fe_values, Table<1, Sacado::Fad::DFad<double>> &R, Table<1, Sacado::Fad::DFad<double>> &ULocal, Table<1, double> &ULocalConv);
-  ParameterHandler *params;
-  void apply_initial_condition();
-  void solve_ibvp();
-  ConstraintMatrix *constraints;
+	nodalField(dealii::ParameterHandler& _params);
+	
+	dealii::ParameterHandler* params;
+	void compute_derived_quantities_vector(const std::vector<Vector<double> > &uh,
+					       const std::vector<std::vector<Tensor<1,dim> > > &duh,
+					       const std::vector<std::vector<Tensor<2,dim> > > &dduh,
+					       const std::vector<Point<dim> >                  &normals,
+					       const std::vector<Point<dim> >                  &evaluation_points,
+					       std::vector<Vector<double> >                    &computed_quantities) const;								 							 
+};
 
-  int iter_count = 0;
-  bool increase_ts = false;
+template <int dim>
+nodalField<dim>::nodalField(dealii::ParameterHandler& _params):params(&_params)
+{}
 
-  int c_dof = 0, mu_dof = 1, phi_dof = 2, zeta_dof = 3; // vacancy, mu, Bi layer (constraint), not used (constraint)
+template <int dim>
+void nodalField<dim>::compute_derived_quantities_vector(const std::vector<Vector<double> > &uh,
+					       const std::vector<std::vector<Tensor<1,dim> > > &duh,
+					       const std::vector<std::vector<Tensor<2,dim> > > &dduh,
+					       const std::vector<Point<dim> >                  &normals,
+					       const std::vector<Point<dim> >                  &evaluation_points,
+					       std::vector<Vector<double> >                    &computed_quantities) const
+{
+	
+	const unsigned int n_q_points = uh.size();
+	for(unsigned int q=0; q<n_q_points;q++){
+		double c1=uh[q][0], c2=uh[q][2];
+		if (c2+0.866*c1 > 0 and c1 >= 0) computed_quantities[q][0]=1;
+		else if (c2-0.866*c1>= 0 and c1 < 0) computed_quantities[q][0]=0;
+		else computed_quantities[q][0]=-1;
+	}
+}
+
+template <int dim>
+class CahnHilliard: public mechanoChemFEM<dim>
+{
+	public:
+		CahnHilliard();
+		//this is a overloaded function 
+		void ini_updateLinearSystem();
+		void get_residual(const typename hp::DoFHandler<dim>::active_cell_iterator &cell, const FEValues<dim>& fe_values, Table<1, Sacado::Fad::DFad<double> >& R, Table<1, Sacado::Fad::DFad<double>>& ULocal, Table<1, double >& ULocalConv);
+		void solve_ibvp();
+		void save_features();
+		int iter_count=0;
+		ParameterHandler* params;		
+		nodalField<dim> computedNodalField;
+		std::vector<double> local_features;
+		std::vector<double> features;
+		bool output_w_theta;
+		
+		//AffineConstraints<double> null_constraints;
+		
+
 };
 template <int dim>
-CahnHilliard<dim>::CahnHilliard()
+CahnHilliard<dim>::CahnHilliard():computedNodalField(*params)
 {
-  constraints = this->constraints_mechanoChemFEM;
-  // This let you use one params to get all parameters pre-defined in the mechanoChemFEM
-  params = this->params_mechanoChemFEM;
-  params->enter_subsection("Concentration");
-  params->declare_entry("omega", "0", Patterns::Double());
-  params->declare_entry("kappa", "0", Patterns::Double());
-  params->declare_entry("M", "0", Patterns::Double());
-  // init
-  params->declare_entry("perturb", "0", Patterns::Double());
-  params->declare_entry("mean", "0", Patterns::Double());
-  // mu
-  params->declare_entry("mu_fun", "0", Patterns::Integer());
-  params->declare_entry("constant_M","false",Patterns::Bool());
-  params->declare_entry("increase_time","false",Patterns::Bool());
-  params->declare_entry("ep", "0", Patterns::Double());
-  params->declare_entry("tt", "0", Patterns::Double());
-  params->declare_entry("order", "1", Patterns::Integer());
-  // flux
-  params->declare_entry("flux", "0.1", Patterns::Double());
-  params->declare_entry("flux_width", "0.1", Patterns::Double());
-  params->leave_subsection();
+		this->pcout<<"CahnHilliard initiated"<<std::endl;
+		//This let you use one params to get all parameters pre-defined in the mechanoChemFEM
+		params=this->params_mechanoChemFEM;
+		
+		params->enter_subsection("Problem");
+		params->declare_entry("output_w_theta","true",Patterns::Bool());
+		params->leave_subsection();
+		params->enter_subsection("Concentration");
+		params->declare_entry("c1_ini","0",Patterns::Double() );
+		params->declare_entry("c2_ini","0",Patterns::Double() );
+		params->declare_entry("mobility_1","0",Patterns::Double() );
+		params->declare_entry("mobility_2","0",Patterns::Double() );
+		params->declare_entry("kappa_1","0",Patterns::Double() );
+		params->declare_entry("kappa_2","0",Patterns::Double() );
+		
+		params->declare_entry("d","0",Patterns::Double() );
+		params->declare_entry("s","0",Patterns::Double() );
+		
+		params->leave_subsection();		
+		
+		//Declear the parameters before load it
+		this->load_parameters("../parameters.prm");
+		//initiate computed fields.
+		std::vector<std::vector<std::string> > computed_primary_variables={ {"theta", "component_is_scalar"}};
+		computedNodalField.setupComputedField(computed_primary_variables);
+		params->enter_subsection("Problem");
+		output_w_theta=params->get_bool("output_w_theta");
+		params->leave_subsection();
+		local_features.resize(4,0.0);
+		features.resize(4,0.0);
+		
+		//define main fields from parameter file.
+		this->define_primary_fields();
+		//Set up the ibvp.
+		this->init_ibvp();
+	}
 
-  // Declare the parameters before load it
-  this->load_parameters("parameters.prm");
-
-  // define main fields from parameter file.
-  this->define_primary_fields();
-  // Set up the ibvp.
-  this->init_ibvp();
-}
-
-long factorial(const int n)
-{
-  long f = 1;
-  for (int i=1; i<=n; ++i)
-      f *= i;
-  return f;
-}
 
 template <int dim>
-void CahnHilliard<dim>::apply_initial_condition()
+void CahnHilliard<dim>::ini_updateLinearSystem()
 {
-  std::cout << "=========== applying initial condition (new) ===========\n";
-  params->enter_subsection("Geometry");
-  double x_min = params->get_double("x_min");
-  double x_max = params->get_double("x_max");
-  double y_min = params->get_double("y_min");
-  double y_max = params->get_double("y_max");
-  params->leave_subsection();
-
-  params->enter_subsection("Concentration");
-  double perturb = params->get_double("perturb");
-  double mean = params->get_double("mean");
-  params->leave_subsection();
-
-  // 0, 1, 2, 3 for different dof
-  typename hp::DoFHandler<dim>::active_cell_iterator cell = this->dof_handler.begin_active(), endc = this->dof_handler.end();
-  for (; cell != endc; ++cell)
-  {
-    if (cell->subdomain_id() == this->this_mpi_process)
-    {
-      Point<dim> center = cell->center();
-      hp::FEValues<dim> hp_fe_values(this->fe_collection, this->q_collection, update_values | update_quadrature_points);
-      hp_fe_values.reinit(cell);
-      const FEValues<dim> &fe_values = hp_fe_values.get_present_fe_values();
-      const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-      std::vector<unsigned int> local_dof_indices(dofs_per_cell);
-      cell->get_dof_indices(local_dof_indices);
-
-      int vertex_id = 0;
-      for (unsigned int i = 0; i < dofs_per_cell; ++i)
-      {
-        int ck = fe_values.get_fe().system_to_component_index(i).first;
-        if (ck == c_dof)
-        {
-          this->solution_prev(local_dof_indices[i]) =  mean + perturb * (static_cast<double>(rand()) / (static_cast<double>(RAND_MAX)) - 0.5) * 2;
-        }
-        if (ck == mu_dof)
-        {
-          this->solution_prev(local_dof_indices[i]) = 0.0;
-        }
-        if (ck == phi_dof)
-        {
-          this->solution_prev(local_dof_indices[i]) = 0.0;
-        }
-        if (ck == zeta_dof)
-        {
-          this->solution_prev(local_dof_indices[i]) = 0.0;
-        }
-        if (ck == zeta_dof)
-          vertex_id += 1;
-      } // dofs_per_cell
-    }   // this_mpi_process
-  }     // cell
-
-  this->solution_prev.compress(VectorOperation::insert); // potentially for parallel computing purpose.
-  this->solution = this->solution_prev;
-
-  constraints->clear();
-  DoFTools::make_hanging_node_constraints(this->dof_handler, *constraints);
-
-
-  //-------------------
-  // add constraints and dirchle BC
-  //------------------- 
-  {
-    hp::FEValues<dim> hp_fe_values(this->fe_collection, this->q_collection, update_values | update_quadrature_points);
-    typename hp::DoFHandler<dim>::active_cell_iterator cell = this->dof_handler.begin_active(), endc = this->dof_handler.end();
-    for (; cell != endc; ++cell)
-    {
-      if (cell->subdomain_id() == this->this_mpi_process)
-      { // parallel computing.
-        // int cell_id = cell->active_cell_index();
-        hp_fe_values.reinit(cell);
-        const FEValues<dim> &fe_values = hp_fe_values.get_present_fe_values();
-
-        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-        std::vector<unsigned int> local_dof_indices(dofs_per_cell);
-        cell->get_dof_indices(local_dof_indices);
-        for (unsigned int i = 0; i < dofs_per_cell; ++i)
-        {
-          const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first;
-          // std::cout << cell_id << " ck " << ck << std::endl;
-          if (ck == phi_dof or ck == zeta_dof)
-          {
-            auto globalDOF = local_dof_indices[i];
-            constraints->add_line(globalDOF);
-            constraints->set_inhomogeneity(globalDOF, 0.0);
-          }
-        }
-      }
-    }
-  }
-
-  constraints->close();
-  std::cout << "===========  end of constraint =========== " << std::endl;
+	for (unsigned int i=0;i<4;i++)
+	{
+		local_features[i]=0;
+		features[i]=0;
+	}
 }
-
-template <int dim>
-void CahnHilliard<dim>::get_residual(const typename hp::DoFHandler<dim>::active_cell_iterator &cell, const FEValues<dim> &fe_values, Table<1, Sacado::Fad::DFad<double>> &R, Table<1, Sacado::Fad::DFad<double>> &ULocal, Table<1, double> &ULocalConv)
-{
-
-  params->enter_subsection("Geometry");
-  double x_min = params->get_double("x_min");
-  double x_max = params->get_double("x_max");
-  double y_min = params->get_double("y_min");
-  double y_max = params->get_double("y_max");
-  // int num_elem_x = params->get_integer("num_elem_x");
-  // int num_elem_y = params->get_integer("num_elem_y");
-  params->leave_subsection();
-
-  // evaluate primary fields
-  params->enter_subsection("Concentration");
-  double M = params->get_double("M");
-  double omega = params->get_double("omega");
-  double kappa = params->get_double("kappa");
-  // mu
-  bool constant_M = params->get_bool("constant_M");
-  int mu_fun = params->get_integer("mu_fun");
-  double ep = params->get_double("ep");
-  double tt = params->get_double("tt");
-  int order = params->get_integer("order");
-  // flux
-  double flux_width = params->get_double("flux_width");
-  double flux = params->get_double("flux");
-  params->leave_subsection();
-  unsigned int n_q_points = fe_values.n_quadrature_points;
-
-  dealii::Table<1, double> c_1_conv(n_q_points);
-  dealii::Table<1, Sacado::Fad::DFad<double>> c_1(n_q_points), mu(n_q_points), phi(n_q_points), zeta(n_q_points);
-  dealii::Table<2, Sacado::Fad::DFad<double>> c_1_grad(n_q_points, dim), mu_grad(n_q_points, dim), phi_grad(n_q_points, dim), zeta_grad(n_q_points, dim);
-  dealii::Table<2, double> c_1_grad_conv(n_q_points, dim);
-
-  evaluateScalarFunction<double, dim>(fe_values, c_dof, ULocalConv, c_1_conv);
-  evaluateScalarFunctionGradient<double, dim>(fe_values, c_dof, ULocalConv, c_1_grad_conv);
-
-  evaluateScalarFunction<Sacado::Fad::DFad<double>, dim>(fe_values, c_dof, ULocal, c_1);
-  evaluateScalarFunctionGradient<Sacado::Fad::DFad<double>, dim>(fe_values, c_dof, ULocal, c_1_grad);
-
-  evaluateScalarFunction<Sacado::Fad::DFad<double>, dim>(fe_values, mu_dof, ULocal, mu);
-  evaluateScalarFunctionGradient<Sacado::Fad::DFad<double>, dim>(fe_values, mu_dof, ULocal, mu_grad);
-
-  evaluateScalarFunction<Sacado::Fad::DFad<double>, dim>(fe_values, phi_dof, ULocal, phi);
-  evaluateScalarFunctionGradient<Sacado::Fad::DFad<double>, dim>(fe_values, phi_dof, ULocal, phi_grad);
-
-  evaluateScalarFunction<Sacado::Fad::DFad<double>, dim>(fe_values, zeta_dof, ULocal, zeta);
-  evaluateScalarFunctionGradient<Sacado::Fad::DFad<double>, dim>(fe_values, zeta_dof, ULocal, zeta_grad);
-
-  // evaluate diffusion and reaction term
-  dealii::Table<1, Sacado::Fad::DFad<double>> rhs_mu(n_q_points);
-  dealii::Table<2, Sacado::Fad::DFad<double>> j_c_1(n_q_points, dim), kappa_c_1_grad(n_q_points, dim);
-
-  // scalar M
-  // j_c_1 = table_scaling<dim, Sacado::Fad::DFad<double>, Sacado::Fad::DFad<double>>(mu_grad, -M); 
-
-  double T = 300;           // K
-  
-  double a = -1.51629e+10 / 1e27 * 6.242e18;  // ev/nm3
-  double b = 1.95270e+10  / 1e27 * 6.242e18;  // ev/nm3
-  double c = -4.36414e+09 / 1e27 * 6.242e18;  // ev/nm3
-  
-  // double k = 1.380649e-23 * 6.242e18;        // m2 kg s-2 K-1 = J/K => eV/K;
-  double k = 8.617333262e-5;                  // eV/K
-  double V = 20.1207e-30  * 1e27;              // m^3
-
-  double aa = 5.226199007e-21 * 6.242e18;  // eV
-  double bb = 5.51601893e-20  * 6.242e18;  // eV
-  double cc = -6.03863884e-20 * 6.242e18;  // eV
-  double nus = 1e13;
-  // double DE =  0.0; //110.535 * 1.60218E-22; // mev - > J;
-  
-  Sacado::Fad::DFad<double> dGdc;
-  Sacado::Fad::DFad<double> L = M;
-  double d;
-  double P;
-  
-  Sacado::Fad::DFad<double> Y;
-  double ep0 = tt +    ep  * (1-2*tt);
-  double ep1 = tt + (1-ep) * (1-2*tt);
-
-  for (unsigned int q = 0; q < n_q_points; q++)
-  { 
-    // ------------------------------------------------------------------------------------------------
-    if (mu_fun == 0)
-    {
-      this->pcout << "right" << "\n";
-      if ((ep0 < c_1[q]) and (c_1[q] < ep1))
-      {
-        Y = (c_1[q] - tt) / (1 - 2*tt);
-        dGdc = a + b + 2*c*Y +(k*T/V)*(log(Y) - log(1 - Y));   // J/m^3
-      }
-      else
-      {
-        if (c_1[q] <= ep0)
-        {
-          P = ep; // =  Y(ep0)
-          this->pcout << "left" << "\n";
-        }
-        else if (ep1 <= c_1[q])
-        {
-          P = 1 - ep; // =  Y(ep1)
-          this->pcout << "right" << "\n";
-        }
-
-        dGdc = a + b + 2*c*P + (k*T/V)*(log(P) - log(1 - P)); 
-        if (order>=1)
-        {
-          dGdc += 2*c/(1-2*tt)*(c_1[q]-P);
-          for (unsigned int l = 1; l <= (order-1); l++)
-          {                                                                                            
-            dGdc += (k*T/V)/(1-2*tt)*std::pow(-1,l-1)*factorial(l-1)*(std::pow(P,-l)-std::pow(1-P,-l)) * std::pow(c_1[q] - P,l)/factorial(l);
-          }
-        }
-
-      }
-      dGdc = dGdc * V;
-    }  
-    else if (mu_fun == 1)
-    {
-      d = 5e2;
-      dGdc =  0.865 * (a + b + 2 * c * c_1[q] - (T * k * (d*exp(-d*c_1[q]) - d*exp(d*(c_1[q] - 1))))/V ) * V;  // J/m^3
-    }
-
-    if (!constant_M)
-    {
-      L = M * c_1[q] * (1 - c_1[q]) * std::exp(-(aa + bb * c_1[q] + cc * c_1[q] * c_1[q]) / (k * T)); // no unit
-      // if (c_1[q] <= ep)
-      // {
-      //   L = -1e9;
-      // }
-      // else if ((1 - ep) <= c_1[q])
-      // {
-      //   L = -1e9;
-      // }
-    }
-    // ------------------------------------------------------------------------------------------------
-
-    rhs_mu[q] = - mu[q] + omega * dGdc;
-    
-    for (unsigned int j = 0; j < dim; j++)
-    {
-      kappa_c_1_grad(q, j) =  kappa * c_1_grad(q, j);
-      j_c_1(q, j) = - L * mu_grad(q, j);
-    }
-  }
-
-  // call residual functions
-  this->ResidualEq.residualForDiffusionEq(fe_values, c_dof, R, c_1, c_1_conv, j_c_1);
-  this->ResidualEq.residualForPoissonEq(fe_values, mu_dof, R, kappa_c_1_grad, rhs_mu);
-
-  //-------------------
-  // BC
-  //-------------------
-  double tol = 0.001;
-  for (unsigned int faceID = 0; faceID < 2 * dim; faceID++)
-  {
-    if (cell->face(faceID)->at_boundary() == true)
-    {
-      if ((cell->face(faceID)->center()[1] <= (y_min + tol)) and
-          (cell->face(faceID)->center()[0] >= ((x_max + x_min) / 2 - flux_width / 2)) and
-          (cell->face(faceID)->center()[0] <= ((x_max + x_min) / 2 + flux_width / 2))) // bottom boundary 
-      {
-        flux = - flux;
-      }
-      else
-      {
-        flux = 0.0;
-      }
-    FEFaceValues<dim> fe_face_values(fe_values.get_fe(), *(this->common_face_quadrature), update_values | update_quadrature_points | update_JxW_values);
-    fe_face_values.reinit(cell, faceID);
-    this->ResidualEq.residualForNeummanBC(fe_values, fe_face_values, c_dof, R, flux); // minus flux for inbound // plus flux for outbound
-    }
-  }
-
-  const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-  for (unsigned int i0 = 0; i0 < dofs_per_cell; ++i0)
-  {
-    if (R[i0] != R[i0])
-    {
-      std::cout << " R[i0] " << R[i0] << std::endl;
-      exit(0);
-    }
-  }
-
-}
-
-/**************************************
- * Implement adaptive time stepping
- *************************************/
 template <int dim>
 void CahnHilliard<dim>::solve_ibvp()
-{
+{		
+	int reduce_time=0;
+	while(reduce_time<10) {
+		bool converge_flag=this->nonlinearSolve(this->solution);
+		//reset iter_count to 0
+		if (converge_flag) break;
+		else{
+			iter_count=0;
+			this->pcout<<"not converge, reduce dt by half"<<std::endl;
+			this->current_dt *= 0.5;
+		}		
+	}
+	iter_count++;
+	if(iter_count>5) {
+		iter_count=0;
+		this->current_dt *= 2;//double dt
+	}
+	this->solution_prev=this->solution;
+	MPI_Reduce(&local_features[0], &features[0], 4, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);	
+	
+	save_features();
+	if(output_w_theta){
+		Vector<double> localized_U(this->solution_prev);
+		this->FEMdata_out.clear_data_vectors();
+		Vector<float> material_id(this->triangulation.n_active_cells()); 
+		this->FEMdata_out.data_out.add_data_vector(localized_U, computedNodalField);
+		std::string output_path = this->output_directory+"output-"+std::to_string(this->current_increment+this->off_output_index)+".vtk";
+		this->FEMdata_out.write_vtk(this->solution_prev,output_path);
+		this->save_output=false;
+	}
 
-  params->enter_subsection("Concentration");
-  bool increase_time = params->get_bool("increase_time");
-  params->leave_subsection();
 
-  if (increase_ts and increase_time)
-  {
-    increase_ts = false;
-    this->pcout << "Increasing timestep \n";
-    this->current_dt *= std::pow(10., 0.25); // increase dt
-  }
-
-  int converged;
-  while (true)
-  {
-    converged = this->nonlinearSolve(this->solution);
-    if ((converged > -1))
-    {
-      break;
-    }
-    else
-    {
-      iter_count = 0;
-      this->pcout << "Not converged or out of bounds, reduce dt." << std::endl;
-      this->current_dt /= std::pow(10., 0.25);
-      this->solution = this->solution_prev;
-    }
-  }
-  if (converged < 4)
-  {
-    iter_count++;
-    if (converged < 3)
-    {
-      iter_count++;
-      iter_count++; // Increase time step sooner for faster convergence
-    }
-  }
-  else
-  {
-    iter_count = 0;
-  }
-  // Check if the current_time is a multiple of the doubled timestep
-  // bool multiple = (std::fmod(this->current_time,2.*this->current_dt) < 1.e-8);
-  if (iter_count > 2 && this->current_dt < 0.1)
-  {
-    increase_ts = true;
-    iter_count = 0;
-  }
-
-  this->solution_prev = this->solution;
+	
 }
+
+template <int dim>
+void CahnHilliard<dim>::get_residual(const typename hp::DoFHandler<dim>::active_cell_iterator &cell, const FEValues<dim>& fe_values, Table<1, Sacado::Fad::DFad<double> >& R, Table<1, Sacado::Fad::DFad<double>>& ULocal, Table<1, double >& ULocalConv)
+{
+	//evaluate primary fields
+	params->enter_subsection("Concentration");
+	double M1=params->get_double("mobility_1");
+	double M2=params->get_double("mobility_2");
+	double k1=params->get_double("kappa_1");
+	double k2=params->get_double("kappa_2");
+	
+	double d=params->get_double("d");
+	double s=params->get_double("s");
+
+	params->leave_subsection();
+	unsigned int n_q_points= fe_values.n_quadrature_points;
+	int c1_dof=0, mu1_dof=1,c2_dof=2, mu2_dof=3;
+  //define fields
+	dealii::Table<1,double>  c1_conv(n_q_points);
+	dealii::Table<1,Sacado::Fad::DFad<double> > c1(n_q_points), mu1(n_q_points);
+	dealii::Table<2,Sacado::Fad::DFad<double> >  c1_grad(n_q_points, dim), mu1_grad(n_q_points, dim);
+	
+	dealii::Table<1,double>  c2_conv(n_q_points);
+	dealii::Table<1,Sacado::Fad::DFad<double> > c2(n_q_points), mu2(n_q_points);
+	dealii::Table<2,Sacado::Fad::DFad<double> >  c2_grad(n_q_points, dim), mu2_grad(n_q_points, dim);
+  //evaluate fields
+	evaluateScalarFunction<double,dim>(fe_values, c1_dof, ULocalConv, c1_conv);
+	evaluateScalarFunction<Sacado::Fad::DFad<double>,dim>(fe_values, c1_dof, ULocal, c1);	
+	evaluateScalarFunctionGradient<Sacado::Fad::DFad<double>,dim>(fe_values, c1_dof, ULocal, c1_grad);
+	evaluateScalarFunction<double,dim>(fe_values, c2_dof, ULocalConv, c2_conv);
+	evaluateScalarFunction<Sacado::Fad::DFad<double>,dim>(fe_values, c2_dof, ULocal, c2);	
+	evaluateScalarFunctionGradient<Sacado::Fad::DFad<double>,dim>(fe_values, c2_dof, ULocal, c2_grad);
+	
+	evaluateScalarFunction<Sacado::Fad::DFad<double>,dim>(fe_values, mu1_dof, ULocal, mu1);	
+	evaluateScalarFunctionGradient<Sacado::Fad::DFad<double>,dim>(fe_values, mu1_dof, ULocal, mu1_grad);
+	evaluateScalarFunction<Sacado::Fad::DFad<double>,dim>(fe_values, mu2_dof, ULocal, mu2);	
+	evaluateScalarFunctionGradient<Sacado::Fad::DFad<double>,dim>(fe_values, mu2_dof, ULocal, mu2_grad);
+	
+	
+	//evaluate diffusion and reaction term
+	dealii::Table<1,Sacado::Fad::DFad<double> > rhs_mu1(n_q_points);
+	dealii::Table<2,Sacado::Fad::DFad<double> > j_c1(n_q_points, dim), kappa_c1_grad(n_q_points, dim);
+	dealii::Table<1,Sacado::Fad::DFad<double> > rhs_mu2(n_q_points);
+	dealii::Table<2,Sacado::Fad::DFad<double> > j_c2(n_q_points, dim), kappa_c2_grad(n_q_points, dim);
+	
+	j_c1=table_scaling<Sacado::Fad::DFad<double>, dim>(mu1_grad,-M1);//-D_1*c_1_grad
+	j_c2=table_scaling<Sacado::Fad::DFad<double>, dim>(mu2_grad,-M2);//-D_1*c_1_grad
+	kappa_c1_grad=table_scaling<Sacado::Fad::DFad<double>, dim>(c1_grad,k1);
+	kappa_c2_grad=table_scaling<Sacado::Fad::DFad<double>, dim>(c2_grad,k2);
+	
+	for(unsigned int q=0; q<n_q_points;q++){
+		 Sacado::Fad::DFad<double> F_c1=6*d/std::pow(s,4)*(c1[q]*c1[q]+c2[q]*c2[q])*c1[q]-6*d/std::pow(s,3)*c1[q]*c2[q]-3*d/std::pow(s,2)*c1[q];
+		 Sacado::Fad::DFad<double> F_c2=6*d/std::pow(s,4)*(c1[q]*c1[q]+c2[q]*c2[q])*c2[q]+3*d/std::pow(s,3)*c2[q]*c2[q]-3*d/std::pow(s,2)*c2[q];
+		
+		 rhs_mu1[q]=F_c1-mu1[q];
+		 rhs_mu2[q]=F_c2-mu2[q];
+	}
+	
+	//call residual functions
+	this->ResidualEq.residualForDiffusionEq(fe_values, c1_dof, R, c1, c1_conv, j_c1);
+	this->ResidualEq.residualForPoissonEq(fe_values, mu1_dof, R, kappa_c1_grad, rhs_mu1);
+	this->ResidualEq.residualForDiffusionEq(fe_values, c2_dof, R, c2, c2_conv, j_c2);
+	this->ResidualEq.residualForPoissonEq(fe_values, mu2_dof, R, kappa_c2_grad, rhs_mu2);
+	
+	//calculate features
+	dealii::Table<1,Sacado::Fad::DFad<double> > theta1(n_q_points);
+	dealii::Table<1,Sacado::Fad::DFad<double> > theta2(n_q_points);
+	dealii::Table<1,Sacado::Fad::DFad<double> > theta3(n_q_points);
+	dealii::Table<1,Sacado::Fad::DFad<double> > gamma(n_q_points);
+	for(unsigned int q=0; q<n_q_points;q++){
+		if (c2[q]+0.866*c1[q] > 0 and c1[q] >= 0) theta1[q]=1;
+		else if (c2[q]-0.866*c1[q] >= 0 and c1[q] < 0) theta2[q]=1;
+		else theta3[q]=1;
+		gamma[q]=0.5*(c1_grad[q][0]*c1_grad[q][0]+c1_grad[q][1]*c1_grad[q][1]);
+	}
+	local_features[0]+=this->ResidualEq.volumeIntegration(fe_values, theta1);
+	local_features[1]+=this->ResidualEq.volumeIntegration(fe_values, theta2);
+	local_features[2]+=this->ResidualEq.volumeIntegration(fe_values, theta3);
+	local_features[3]+=this->ResidualEq.volumeIntegration(fe_values, gamma);
+}
+
+
+template <int dim>
+void CahnHilliard<dim>::save_features(){
+	if (this->this_mpi_process == 0 ){
+	  std::ofstream myfile;
+	  myfile.open ( (this->output_directory+"Features.dat").c_str(),std::ios_base::app);
+		if(!myfile.is_open()) {std::cout<<"file failed to open!"; exit(1);}
+		myfile <<this->current_increment<<" ";
+		for(unsigned int i=0;i<4;i++) {
+		  myfile <<features[i]<<" ";
+		}
+		myfile <<this->current_time<<" ";
+		myfile <<"\n";
+	}
+	
+}
+
+template <int dim>
+void InitialConditions<dim>::vector_value (const Point<dim>   &p, Vector<double>   &values) const{
+	params->enter_subsection("Concentration");
+ 	values(0)= params->get_double("c1_ini") + 0.01*(static_cast <double> (rand())/(static_cast <double>(RAND_MAX))-0.5);
+  values(1) = 0;    
+	values(2)= params->get_double("c2_ini") + 0.01*(static_cast <double> (rand())/(static_cast <double>(RAND_MAX))-0.5);
+ 	values(3) = 0;    
+	params->leave_subsection();
+}
+template class InitialConditions<1>;
+template class InitialConditions<2>;
+template class InitialConditions<3>;
