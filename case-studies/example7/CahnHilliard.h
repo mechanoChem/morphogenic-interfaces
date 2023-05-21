@@ -1,172 +1,181 @@
-/*
-zhenlin wang 2019
-*CahnHilliard
-*/
+/*************************************
+ * Cahn-Hilliard, two fields c1, c2
+ * Mostafa Shojaei
+ * Sun May 21 12:17:13 PDT 2023
+ *************************************/
+
 #include "mechanoChemFEM.h"
-#include "supplementary/computedField.h"
-//#include <deal.II/lac/affine_constraints.h>
+#include "extraFunctions.h"
+// #include "supplementary/supplementaryFunctions.h" //table scaling ?
+#include <math.h> /* exp */
+#include <cmath>  /* sqrt */
 
 template <int dim>
-class nodalField : public computedField<dim>
+class CahnHilliard : public mechanoChemFEM<dim>
 {
 public:
-	nodalField(dealii::ParameterHandler& _params);
-	
-	dealii::ParameterHandler* params;
-	void compute_derived_quantities_vector(const std::vector<Vector<double> > &uh,
-					       const std::vector<std::vector<Tensor<1,dim> > > &duh,
-					       const std::vector<std::vector<Tensor<2,dim> > > &dduh,
-					       const std::vector<Point<dim> >                  &normals,
-					       const std::vector<Point<dim> >                  &evaluation_points,
-					       std::vector<Vector<double> >                    &computed_quantities) const;								 							 
+  CahnHilliard();
+  // this is a overloaded function
+  void get_residual(const typename hp::DoFHandler<dim>::active_cell_iterator &cell, const FEValues<dim> &fe_values, Table<1, Sacado::Fad::DFad<double>> &R, Table<1, Sacado::Fad::DFad<double>> &ULocal, Table<1, double> &ULocalConv);
+  ParameterHandler *params;
+  void apply_initial_condition();
+  ConstraintMatrix *constraints;
+
+  int c1_dof = 0, mu1_dof = 1, c2_dof = 2, mu2_dof = 3; 
 };
 
 template <int dim>
-nodalField<dim>::nodalField(dealii::ParameterHandler& _params):params(&_params)
-{}
-
-template <int dim>
-void nodalField<dim>::compute_derived_quantities_vector(const std::vector<Vector<double> > &uh,
-					       const std::vector<std::vector<Tensor<1,dim> > > &duh,
-					       const std::vector<std::vector<Tensor<2,dim> > > &dduh,
-					       const std::vector<Point<dim> >                  &normals,
-					       const std::vector<Point<dim> >                  &evaluation_points,
-					       std::vector<Vector<double> >                    &computed_quantities) const
+CahnHilliard<dim>::CahnHilliard()
 {
-	
-	const unsigned int n_q_points = uh.size();
-	for(unsigned int q=0; q<n_q_points;q++){
-		double c1=uh[q][0], c2=uh[q][2];
-		if (c2+0.866*c1 > 0 and c1 >= 0) computed_quantities[q][0]=1;
-		else if (c2-0.866*c1>= 0 and c1 < 0) computed_quantities[q][0]=0;
-		else computed_quantities[q][0]=-1;
-	}
+  constraints = this->constraints_mechanoChemFEM;
+  // This let you use one params to get all parameters pre-defined in the mechanoChemFEM
+  params = this->params_mechanoChemFEM;
+  params->enter_subsection("Concentration");
+  params->declare_entry("c1_ini", "0.25", Patterns::Double());
+  params->declare_entry("c2_ini", "0.25", Patterns::Double());
+  params->declare_entry("c1_per", "0.01", Patterns::Double());
+  params->declare_entry("c2_per", "0.01", Patterns::Double());
+  //
+  params->declare_entry("mobility_1","0",Patterns::Double() );
+  params->declare_entry("mobility_2","0",Patterns::Double() );
+  params->declare_entry("kappa_1","0",Patterns::Double() );
+  params->declare_entry("kappa_2","0",Patterns::Double() );
+  // 
+  params->leave_subsection();
+
+  // Declare the parameters before load it
+  this->load_parameters("parameters.prm");
+
+  // define main fields from parameter file.
+  this->define_primary_fields();
+  // Set up the ibvp.
+  this->init_ibvp();
 }
 
 template <int dim>
-class CahnHilliard: public mechanoChemFEM<dim>
+void CahnHilliard<dim>::apply_initial_condition()
 {
-	public:
-		CahnHilliard();
-		//this is a overloaded function 
-		void ini_updateLinearSystem();
-		void get_residual(const typename hp::DoFHandler<dim>::active_cell_iterator &cell, const FEValues<dim>& fe_values, Table<1, Sacado::Fad::DFad<double> >& R, Table<1, Sacado::Fad::DFad<double>>& ULocal, Table<1, double >& ULocalConv);
-		void solve_ibvp();
-		void save_features();
-		int iter_count=0;
-		ParameterHandler* params;		
-		nodalField<dim> computedNodalField;
-		std::vector<double> local_features;
-		std::vector<double> features;
-		bool output_w_theta;
-		
-		//AffineConstraints<double> null_constraints;
-		
+  std::cout << "=========== applying initial condition (new) ===========\n";
+  params->enter_subsection("Geometry");
+  double x_min = params->get_double("x_min");
+  double x_max = params->get_double("x_max");
+  double y_min = params->get_double("y_min");
+  double y_max = params->get_double("y_max");
+  params->leave_subsection();
 
-};
-template <int dim>
-CahnHilliard<dim>::CahnHilliard():computedNodalField(*params)
-{
-		this->pcout<<"CahnHilliard initiated"<<std::endl;
-		//This let you use one params to get all parameters pre-defined in the mechanoChemFEM
-		params=this->params_mechanoChemFEM;
-		
-		params->enter_subsection("Problem");
-		params->declare_entry("output_w_theta","true",Patterns::Bool());
-		params->leave_subsection();
-		params->enter_subsection("Concentration");
-		params->declare_entry("c1_ini","0",Patterns::Double() );
-		params->declare_entry("c2_ini","0",Patterns::Double() );
-		params->declare_entry("mobility_1","0",Patterns::Double() );
-		params->declare_entry("mobility_2","0",Patterns::Double() );
-		params->declare_entry("kappa_1","0",Patterns::Double() );
-		params->declare_entry("kappa_2","0",Patterns::Double() );
-		
-		params->declare_entry("d","0",Patterns::Double() );
-		params->declare_entry("s","0",Patterns::Double() );
-		
-		params->leave_subsection();		
-		
-		//Declear the parameters before load it
-		this->load_parameters("../parameters.prm");
-		//initiate computed fields.
-		std::vector<std::vector<std::string> > computed_primary_variables={ {"theta", "component_is_scalar"}};
-		computedNodalField.setupComputedField(computed_primary_variables);
-		params->enter_subsection("Problem");
-		output_w_theta=params->get_bool("output_w_theta");
-		params->leave_subsection();
-		local_features.resize(4,0.0);
-		features.resize(4,0.0);
-		
-		//define main fields from parameter file.
-		this->define_primary_fields();
-		//Set up the ibvp.
-		this->init_ibvp();
-	}
+  params->enter_subsection("Concentration");
+  double c1_ini = params->get_double("c1_ini");
+  double c2_ini = params->get_double("c2_ini");
+  double c1_per = params->get_double("c1_per");
+  double c2_per = params->get_double("c2_per");
+  params->leave_subsection();
 
+  // 0, 1, 2, 3 for different dof
+  typename hp::DoFHandler<dim>::active_cell_iterator cell = this->dof_handler.begin_active(), endc = this->dof_handler.end();
+  for (; cell != endc; ++cell)
+  {
+    if (cell->subdomain_id() == this->this_mpi_process)
+    {
+      Point<dim> center = cell->center();
+      hp::FEValues<dim> hp_fe_values(this->fe_collection, this->q_collection, update_values | update_quadrature_points);
+      hp_fe_values.reinit(cell);
+      const FEValues<dim> &fe_values = hp_fe_values.get_present_fe_values();
+      const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+      std::vector<unsigned int> local_dof_indices(dofs_per_cell);
+      cell->get_dof_indices(local_dof_indices);
 
-template <int dim>
-void CahnHilliard<dim>::ini_updateLinearSystem()
-{
-	for (unsigned int i=0;i<4;i++)
-	{
-		local_features[i]=0;
-		features[i]=0;
-	}
-}
-template <int dim>
-void CahnHilliard<dim>::solve_ibvp()
-{		
-	int reduce_time=0;
-	while(reduce_time<10) {
-		bool converge_flag=this->nonlinearSolve(this->solution);
-		//reset iter_count to 0
-		if (converge_flag) break;
-		else{
-			iter_count=0;
-			this->pcout<<"not converge, reduce dt by half"<<std::endl;
-			this->current_dt *= 0.5;
-		}		
-	}
-	iter_count++;
-	if(iter_count>5) {
-		iter_count=0;
-		this->current_dt *= 2;//double dt
-	}
-	this->solution_prev=this->solution;
-	MPI_Reduce(&local_features[0], &features[0], 4, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);	
-	
-	save_features();
-	if(output_w_theta){
-		Vector<double> localized_U(this->solution_prev);
-		this->FEMdata_out.clear_data_vectors();
-		Vector<float> material_id(this->triangulation.n_active_cells()); 
-		this->FEMdata_out.data_out.add_data_vector(localized_U, computedNodalField);
-		std::string output_path = this->output_directory+"output-"+std::to_string(this->current_increment+this->off_output_index)+".vtk";
-		this->FEMdata_out.write_vtk(this->solution_prev,output_path);
-		this->save_output=false;
-	}
+      int vertex_id = -1;
+      for (unsigned int i = 0; i < dofs_per_cell; ++i)
+      {
+        int ck = fe_values.get_fe().system_to_component_index(i).first;
+        if (ck == 0) vertex_id += 1;
+        if (ck == c1_dof)
+          this->solution_prev(local_dof_indices[i]) = c1_ini + c1_per*(static_cast <double> (rand())/(static_cast <double>(RAND_MAX))-0.5);
+        if (ck == mu1_dof)
+          this->solution_prev(local_dof_indices[i]) = 0.0;
+        if (ck == c2_dof)
+          this->solution_prev(local_dof_indices[i]) = c2_ini + c2_per*(static_cast <double> (rand())/(static_cast <double>(RAND_MAX))-0.5);
+        if (ck == mu2_dof)
+          this->solution_prev(local_dof_indices[i]) = 0.0;
 
+      } // dofs_per_cell
+    }   // this_mpi_process
+  }     // cell
 
-	
+  this->solution_prev.compress(VectorOperation::insert); // potentially for parallel computing purpose.
+  this->solution = this->solution_prev;
+
+  constraints->clear();
+
+  // DoFTools::make_hanging_node_constraints(this->dof_handler, *constraints);
+  // //-------------------
+  // // add constraints and BC
+  // //-------------------
+  // {
+  //   hp::FEValues<dim> hp_fe_values(this->fe_collection, this->q_collection, update_values | update_quadrature_points);
+  //   typename hp::DoFHandler<dim>::active_cell_iterator cell = this->dof_handler.begin_active(), endc = this->dof_handler.end();
+  //   for (; cell != endc; ++cell)
+  //   {
+  //     if (cell->subdomain_id() == this->this_mpi_process)
+  //     { // parallel computing.
+  //       // int cell_id = cell->active_cell_index();
+  //       hp_fe_values.reinit(cell);
+  //       const FEValues<dim> &fe_values = hp_fe_values.get_present_fe_values();
+
+  //       const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+  //       std::vector<unsigned int> local_dof_indices(dofs_per_cell);
+  //       cell->get_dof_indices(local_dof_indices);
+  //       for (unsigned int i = 0; i < dofs_per_cell; ++i)
+  //       {
+  //         const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first;
+  //         // std::cout << cell_id << " ck " << ck << std::endl;
+  //         // if (ck == c1_dof)
+  //         // {
+  //         //   auto globalDOF = local_dof_indices[i];
+  //         //   constraints->add_line(globalDOF);
+  //         //   constraints->set_inhomogeneity(globalDOF, 0.0);
+  //         // }
+  //       }
+  //     }
+  //   }
+  // }
+
+  constraints->close();
+  // std::cout << "===========  end of constraint =========== " << std::endl;
 }
 
 template <int dim>
-void CahnHilliard<dim>::get_residual(const typename hp::DoFHandler<dim>::active_cell_iterator &cell, const FEValues<dim>& fe_values, Table<1, Sacado::Fad::DFad<double> >& R, Table<1, Sacado::Fad::DFad<double>>& ULocal, Table<1, double >& ULocalConv)
+void CahnHilliard<dim>::get_residual(const typename hp::DoFHandler<dim>::active_cell_iterator &cell, const FEValues<dim> &fe_values, Table<1, Sacado::Fad::DFad<double>> &R, Table<1, Sacado::Fad::DFad<double>> &ULocal, Table<1, double> &ULocalConv)
 {
-	//evaluate primary fields
-	params->enter_subsection("Concentration");
-	double M1=params->get_double("mobility_1");
-	double M2=params->get_double("mobility_2");
-	double k1=params->get_double("kappa_1");
-	double k2=params->get_double("kappa_2");
-	
-	double d=params->get_double("d");
-	double s=params->get_double("s");
 
-	params->leave_subsection();
-	unsigned int n_q_points= fe_values.n_quadrature_points;
-	int c1_dof=0, mu1_dof=1,c2_dof=2, mu2_dof=3;
+  params->enter_subsection("Geometry");
+  double x_min = params->get_double("x_min");
+  double x_max = params->get_double("x_max");
+  double y_min = params->get_double("y_min");
+  double y_max = params->get_double("y_max");
+  // int num_elem_x = params->get_integer("num_elem_x");
+  // int num_elem_y = params->get_integer("num_elem_y");
+  params->leave_subsection();
+
+  // evaluate primary fields
+  params->enter_subsection("Concentration");
+  double M1 = params->get_double("mobility_1");
+	double M2 = params->get_double("mobility_2");
+	double k1 = params->get_double("kappa_1");
+	double k2 = params->get_double("kappa_2");
+  params->leave_subsection();
+
+  std::vector<double> x = {0.1, 0.90, 0.10, 0.45};
+  std::vector<double> y = {0.10, 0.10, 0.90, 0.45};
+  std::vector<double> v = {-1.0, -1.0, -1.0, 0.2};
+  std::vector<double> r = {8.0, 8.0, 8.0, 1.0};
+  double a = 1.0;
+  // double m = -1.0; //= min v_val
+
+  // --------------------------------------------------------------------
+
+ 	unsigned int n_q_points= fe_values.n_quadrature_points;
+
   //define fields
 	dealii::Table<1,double>  c1_conv(n_q_points);
 	dealii::Table<1,Sacado::Fad::DFad<double> > c1(n_q_points), mu1(n_q_points);
@@ -194,69 +203,68 @@ void CahnHilliard<dim>::get_residual(const typename hp::DoFHandler<dim>::active_
 	dealii::Table<2,Sacado::Fad::DFad<double> > j_c1(n_q_points, dim), kappa_c1_grad(n_q_points, dim);
 	dealii::Table<1,Sacado::Fad::DFad<double> > rhs_mu2(n_q_points);
 	dealii::Table<2,Sacado::Fad::DFad<double> > j_c2(n_q_points, dim), kappa_c2_grad(n_q_points, dim);
-	
-	j_c1=table_scaling<Sacado::Fad::DFad<double>, dim>(mu1_grad,-M1);//-D_1*c_1_grad
-	j_c2=table_scaling<Sacado::Fad::DFad<double>, dim>(mu2_grad,-M2);//-D_1*c_1_grad
-	kappa_c1_grad=table_scaling<Sacado::Fad::DFad<double>, dim>(c1_grad,k1);
-	kappa_c2_grad=table_scaling<Sacado::Fad::DFad<double>, dim>(c2_grad,k2);
-	
-	for(unsigned int q=0; q<n_q_points;q++){
-		 Sacado::Fad::DFad<double> F_c1=6*d/std::pow(s,4)*(c1[q]*c1[q]+c2[q]*c2[q])*c1[q]-6*d/std::pow(s,3)*c1[q]*c2[q]-3*d/std::pow(s,2)*c1[q];
-		 Sacado::Fad::DFad<double> F_c2=6*d/std::pow(s,4)*(c1[q]*c1[q]+c2[q]*c2[q])*c2[q]+3*d/std::pow(s,3)*c2[q]*c2[q]-3*d/std::pow(s,2)*c2[q];
+
+
+  Sacado::Fad::DFad<double> F_c1, F_c2;
+
+  double d = .4;
+  double s = .7;
+	for(unsigned int q=0; q < n_q_points; q++){
+
+    copy_to_q(j_c1, -M1 * copy_from_q(mu1_grad, q), q);  //j_c1[q][i] = -M_1 * c_1_grad[q][i], for i=1:dim
+    copy_to_q(j_c2, -M2 * copy_from_q(mu2_grad, q), q);
+    copy_to_q(kappa_c1_grad, k1 * copy_from_q(c1_grad, q), q);
+    copy_to_q(kappa_c2_grad, k2 * copy_from_q(c2_grad, q), q);
 		
-		 rhs_mu1[q]=F_c1-mu1[q];
-		 rhs_mu2[q]=F_c2-mu2[q];
+    F_c1 = 0.0;
+    F_c2 = 0.0;
+    for (unsigned int i = 0; i < 4; i++){
+      F_c1 += -r[i] * v[i] * exp(-r[i]*(std::pow(c1[q] - x[i],2) + std::pow(c2[q] - y[i],2))) * (2*c1[q] - 2*x[i]);
+      F_c2 += -r[i] * v[i] * exp(-r[i]*(std::pow(c1[q] - x[i],2) + std::pow(c2[q] - y[i],2))) * (2*c2[q] - 2*y[i]);
+    }
+    F_c1 = a * F_c1;
+		F_c2 = a * F_c2;
+
+    // F_c1 = 6*d/std::pow(s,4)*(c1[q]*c1[q]+c2[q]*c2[q])*c1[q]-6*d/std::pow(s,3)*c1[q]*c2[q]-3*d/std::pow(s,2)*c1[q];
+    // F_c2 = 6*d/std::pow(s,4)*(c1[q]*c1[q]+c2[q]*c2[q])*c2[q]+3*d/std::pow(s,3)*c2[q]*c2[q]-3*d/std::pow(s,2)*c2[q];
+		
+    rhs_mu1[q] = F_c1 - mu1[q];
+    rhs_mu2[q] = F_c2 - mu2[q];
+
 	}
 	
 	//call residual functions
 	this->ResidualEq.residualForDiffusionEq(fe_values, c1_dof, R, c1, c1_conv, j_c1);
+  this->ResidualEq.residualForDiffusionEq(fe_values, c2_dof, R, c2, c2_conv, j_c2);
+
 	this->ResidualEq.residualForPoissonEq(fe_values, mu1_dof, R, kappa_c1_grad, rhs_mu1);
-	this->ResidualEq.residualForDiffusionEq(fe_values, c2_dof, R, c2, c2_conv, j_c2);
 	this->ResidualEq.residualForPoissonEq(fe_values, mu2_dof, R, kappa_c2_grad, rhs_mu2);
 	
-	//calculate features
-	dealii::Table<1,Sacado::Fad::DFad<double> > theta1(n_q_points);
-	dealii::Table<1,Sacado::Fad::DFad<double> > theta2(n_q_points);
-	dealii::Table<1,Sacado::Fad::DFad<double> > theta3(n_q_points);
-	dealii::Table<1,Sacado::Fad::DFad<double> > gamma(n_q_points);
-	for(unsigned int q=0; q<n_q_points;q++){
-		if (c2[q]+0.866*c1[q] > 0 and c1[q] >= 0) theta1[q]=1;
-		else if (c2[q]-0.866*c1[q] >= 0 and c1[q] < 0) theta2[q]=1;
-		else theta3[q]=1;
-		gamma[q]=0.5*(c1_grad[q][0]*c1_grad[q][0]+c1_grad[q][1]*c1_grad[q][1]);
-	}
-	local_features[0]+=this->ResidualEq.volumeIntegration(fe_values, theta1);
-	local_features[1]+=this->ResidualEq.volumeIntegration(fe_values, theta2);
-	local_features[2]+=this->ResidualEq.volumeIntegration(fe_values, theta3);
-	local_features[3]+=this->ResidualEq.volumeIntegration(fe_values, gamma);
+  //-------------------
+  // BC
+  //-------------------
+  // for (unsigned int faceID = 0; faceID < 2 * dim; faceID++)
+  // {
+  //   if (cell->face(faceID)->at_boundary() == true)
+  //   {
+  //     if (cell->face(faceID)->center()[1] <= (y_min +tol)) // bottom boundary 
+  //     {
+  //       if ((cell->face(faceID)->center()[0] >= (1 * ww + dd)) and
+  //           (cell->face(faceID)->center()[0] <= (5 * ww - dd)))  //in gap
+  //       {
+  //         flux = - max_flux;
+  //       }
+  //       else if ((cell->face(faceID)->center()[0] >= (5 * ww + dd)) and
+  //                (cell->face(faceID)->center()[0] <= (9 * ww - dd))) //in gap
+  //       {
+  //         flux = - max_flux;
+  //       }
+  //     }
+  //     FEFaceValues<dim> fe_face_values(fe_values.get_fe(), *(this->common_face_quadrature), update_values | update_quadrature_points | update_JxW_values);
+  //     fe_face_values.reinit(cell, faceID);
+  //     this->ResidualEq.residualForNeummanBC(fe_values, fe_face_values, c_dof, R, flux); // minus flux for inbound // plus fulx for outbound
+  //   }
+  // }
+
 }
 
-
-template <int dim>
-void CahnHilliard<dim>::save_features(){
-	if (this->this_mpi_process == 0 ){
-	  std::ofstream myfile;
-	  myfile.open ( (this->output_directory+"Features.dat").c_str(),std::ios_base::app);
-		if(!myfile.is_open()) {std::cout<<"file failed to open!"; exit(1);}
-		myfile <<this->current_increment<<" ";
-		for(unsigned int i=0;i<4;i++) {
-		  myfile <<features[i]<<" ";
-		}
-		myfile <<this->current_time<<" ";
-		myfile <<"\n";
-	}
-	
-}
-
-template <int dim>
-void InitialConditions<dim>::vector_value (const Point<dim>   &p, Vector<double>   &values) const{
-	params->enter_subsection("Concentration");
- 	values(0)= params->get_double("c1_ini") + 0.01*(static_cast <double> (rand())/(static_cast <double>(RAND_MAX))-0.5);
-  values(1) = 0;    
-	values(2)= params->get_double("c2_ini") + 0.01*(static_cast <double> (rand())/(static_cast <double>(RAND_MAX))-0.5);
- 	values(3) = 0;    
-	params->leave_subsection();
-}
-template class InitialConditions<1>;
-template class InitialConditions<2>;
-template class InitialConditions<3>;
