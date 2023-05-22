@@ -2,7 +2,7 @@
 
 subsection Problem
 set print_parameter = true
-set primary_variables_list= c1, component_is_scalar , mu, component_is_scalar, c2, component_is_scalar, mu2, component_is_scalar
+set primary_variables_list= c1, component_is_scalar , mu1, component_is_scalar, c2, component_is_scalar, mu2, component_is_scalar
 set FE_support_list= 1,1,1,1
 
 set off_output_index = 0
@@ -16,9 +16,9 @@ set totalTime = 500   # 12.5  s					# total time for simulation > output last ti
 set current_time = 0					    # 0 or output last time
 set current_increment =	0					# 0 or output last increment -1
 # set refine_count = 771							# 0 or from the previous output file if resuming from a snapshot (file number + 1)
-set snapshot_directory = snapshot/
-set snapshot_file = snapshot/snapshot-0.dat	# 
-set output_directory = vtk_outputs/
+set snapshot_directory = snapshot2/
+set snapshot_file = snapshot2/snapshot-0.dat	# 
+set output_directory = vtk_outputs2/
 
 #---------------------------------------------------
 
@@ -47,7 +47,7 @@ set c1_per = 0.01
 set c2_per = 0.01
 
 set mobility_1 = .1
-set mobility_1 = .1
+set mobility_2 = .1
 set kappa_1 = 1
 set kappa_2 = 1
 end
