@@ -1,0 +1,100 @@
+#parameters file
+#---------------------------------------------------
+subsection Problem
+set print_parameter = true
+#FEM
+set primary_variables_list = c1, component_is_scalar , mu1, component_is_scalar, c2, component_is_scalar, mu2, component_is_scalar, out1, component_is_scalar, out2, component_is_scalar
+set FE_support_list = 1,1,1,1,1,1
+set volume_quadrature = 3 
+set face_quadrature = 2 
+
+#set mesh = .msh
+set save_snapshot = true
+set resuming_from_snapshot = true  		    # false or true
+set dt = .05 #0.01							# 0.000005 # initial time step, it is addaptive, difference in current times
+set totalTime = 500  # 12.5  s				# total time for simulation > output last time
+set current_time = 0				        # 0 or output last time
+set current_increment =	0					# 0 or output last increment -1
+
+# ============
+# lit all flux values 
+# set snapshot_file = ../starting_snapshots/initial_structure_snapshot-239.dat 
+
+# dlit 
+set snapshot_file = ../starting_snapshots/ended_lit_f.5-snapshot-375.dat       # dlit  flux = 0.5
+# set snapshot_file = ../starting_snapshots/ended_lit_f1-snapshot-100.dat      # dlit  flux = 1.0
+# set snapshot_file = ../starting_snapshots/ended_lit_f2-snapshot-32.dat       # dlit  flux = 2.0
+# ============
+
+set snapshot_directory = outpt_snapshots/
+set output_directory   = outpt_vtks/
+
+set off_output_index = 0
+end
+#---------------------------------------------------
+
+#---------------------------------------------------
+subsection Geometry
+set x_min = 0.0
+set y_min = 0.0
+set z_min = 0.0
+set x_max = 80.
+set y_max = 80.
+set z_max = 8.	
+
+set num_elem_x = 60  #60  #100
+set num_elem_y = 60  #60  #100
+set num_elem_z = 6   #6   #10 	
+end
+#---------------------------------------------------
+
+#---------------------------------------------------
+subsection Concentration
+set c1_ini = 0.5
+set c2_ini = 0.25
+
+set c1_per = 0.01
+set c2_per = 0.01
+
+set kappa_1 = 2.0
+set kappa_2 = 2.0
+
+# base case
+# set mobility_1 = 0.04
+# set mobility_2 = 0.003
+# set flux_amp  = 0.075
+
+set mobility_1 = 0.4
+set mobility_2 = 0.4
+
+# (+) add Li, lit | (-) remove Li, dlit  
+# 1 mA/cm^2 ~ 0.075 | 0.5 mA/cm^2 ~ 0.0325 | 2.0 mA/cm^2 ~ 0.150
+set flux_amp  = -0.0325 
+
+set flux_time = 0.00
+set flux_mult_c = false   
+set flux_interval = false
+set flux_interval_time = 1.
+end
+#---------------------------------------------------					
+#
+# parameters reserved for deal.ii first level code:
+#nonLinear_method : classicNewton
+#solver_method (direct) : PETScsuperLU, PETScMUMPS
+#solver_method (iterative) : PETScGMRES PETScBoomerAMG
+#relative_norm_tolerance, absolute_norm_tolerance, max_iterations
+#
+#---------------------------------------------------
+subsection Nonlinear_solver
+		set nonLinear_method = classicNewton
+		set relative_norm_tolerance = 1.0e-6
+		set absolute_norm_tolerance = 1.0e-6
+		set max_iterations = 20
+end
+#---------------------------------------------------
+						
+subsection Linear_solver
+		set solver_method = PETScsuperLU
+		set system_matrix_symmetricFlag = false # default is false
+end
+
